@@ -3,6 +3,11 @@
  * Grzegorz Ulfik 2021
  * grupa 2, sekcja 3
  *
+ * Projekt obejmuje stworzenie biblioteki do obsługi modemu SIM900.
+ *
+ * Example1:
+ * Po naciśnięciu przycisku SW3 wysyłane są wartości kanałów A i B,
+ * które można modyfikować za pomocą przycisków 1,2 lub za pomocą komendy SMS : A=x B=x
  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -26,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define TESTINGNUMBER "" //ToDo: zacenzurowac
+#define TESTINGNUMBER "" //ToDo: Numer do wysyłania testowych wiadomości
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/

@@ -18,12 +18,23 @@ Sim900Struct SIM;
 const char CTRL_Z = 0x1A;
 
 
+/*
+ * @brief Init SIM900 modem
+ *
+ * @param SIM_Call_Callback pointer to Call callback function (defined by user)
+ * @param SIM_SMS_Callback pointer to SMS callback function (defined by user)
+ */
 void sim900_init(void (*SIM_Call_Callback),void (*SIM_SMS_Callback)){
 	SIM.SIM_Call_Callback = SIM_Call_Callback;
 	SIM.SIM_SMS_Callback = SIM_SMS_Callback;
 
 }
 
+/*
+ * @brief poll function of SIM900 modem, should be called every 100-1000ms
+ *
+ * @retval modem status (OK 0 , ERROR 1 , MESSAGE_RX 2 , RINGING 3
+ */
 uint8_t sim900_poll(void) {
 	SIM.timeout++;
 
@@ -90,6 +101,12 @@ uint8_t sim900_poll(void) {
 	return SIMREPLY_OK;
 }
 
+/*
+ * @brief bufor parser of SIM900
+ *
+ * @param data pointer to received data
+ * @param len length of received data
+ */
 void sim900_parseReply(uint8_t* data, uint16_t len){
 	if (len < 2)
 		return; //minimum reply length
@@ -231,12 +248,25 @@ void sim900_parseReply(uint8_t* data, uint16_t len){
 	}
 }
 
+/*
+ *
+ * @param number String pointer, number in format "48000112233"
+ * @param message String message
+ */
 void sim900_sendSMS(char *number, char *message) {
 	strncpy(SIM.txMessageNumber, number, 12);
 	strncpy(SIM.txMessage, message, 160);
 	SIM.messageSendStatus = 1;
 }
 
+/*
+ * @brief Get SIM900 struct (with current parameters)
+ *
+ * @note If user specify the parameter pointer, function will overwrite it with SIM900 struct adress
+ *
+ * @param pointer pointer to Call callback function (defined by user)
+ * @retval SIM900 struct
+ */
 Sim900Struct sim900_getAllParameters(Sim900Struct** pointer){ //pointer to pointer not by mistake
 	if(pointer)*pointer = &SIM; //return pointer if pointer specified
 	return SIM;
