@@ -55,10 +55,20 @@ uint8_t sim900_poll(void) {
 		return SIMREPLY_RINGING;
 	}
 
+	if(SIM.gprsReply){
+		SIM.SIM_GPRS_Callback(SIM.requestReply);
+		SIM.gprsReply = 0;
+	}
+
 	//Polling modem
 	if(SIM.timeout < 20 && SIM.timeout > 1)return SIMREPLY_WAITING; //return if reply not received yet
 	if(SIM.gprsTimeout){
 		SIM.gprsTimeout --;
+		if(SIM.gprsTimeout == 1){
+			SIM.gprsProcessing = 0;
+			SIM.gprsTimeout = 0;
+			SIM.next_pollReq = AT_CLOSE_GPRS;
+		}
 		return SIMREPLY_WAITING;
 	}
 
@@ -355,8 +365,9 @@ void sim900_parseReply(uint8_t* data, uint16_t len){
 					SIM.gprsProcessing = 100;
 				}
 		else if(SIM.gprsProcessing == 100){
-			SIM.SIM_GPRS_Callback(strings[0]);
-			SIM.gprsProcessing = 1;
+			strncpy(SIM.requestReply, strings[0], GPRS_REPLY_LEN);
+			SIM.gprsProcessing = 101;
+			SIM.gprsReply = 1;
 		}
 
 		if (strncmp(strings[0], "CLOSED", 6) == 0) {

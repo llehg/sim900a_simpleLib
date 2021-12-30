@@ -225,7 +225,7 @@ int main(void)
 		  ssd1306_WriteString("SMS Transmit", Font_11x18, White);
 		  ssd1306_UpdateScreen();
 		  //sim900_sendSMS(TESTINGNUMBER, text);
-		  sim900_getGPRS(SECRET, &gprsHandler);
+		  sim900_getGPRS("", &gprsHandler);
 		  HAL_Delay(1000);
 
 	  }

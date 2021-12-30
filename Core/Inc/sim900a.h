@@ -65,6 +65,7 @@ typedef struct _Sim900Struct {
 	//GPRS
 	uint8_t gprsProcessing;
 	uint8_t gprsTimeout;
+	uint8_t gprsReply;
 	char APN[GPRS_APN_LEN];
 	char requestHost[GPRS_HOST_LEN];
 	char requestUrl[GPRS_REQ_LEN];
