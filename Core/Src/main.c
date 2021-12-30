@@ -53,6 +53,7 @@ uint8_t sim900_uartbuffer[SIM900_UARTLENGTH];
 
 uint8_t polltime;
 uint8_t channelA, channelB;
+uint8_t screenfreeze = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -122,6 +123,15 @@ void smsHandler(char* messagingNumber, char* text){
 		channelB = atoi(text + 2);
 	}
 }
+void gprsHandler(char* reply){
+	//Display only
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(0, 0);
+	ssd1306_WriteString(reply, Font_7x10, White);
+	ssd1306_UpdateScreen();
+	screenfreeze = 50;
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -164,6 +174,7 @@ int main(void)
   /* Library init start */
   HAL_UARTEx_ReceiveToIdle_DMA(&huart3, sim900_uartbuffer, SIM900_UARTLENGTH);
   sim900_init(&callHandler , &smsHandler);
+  sim900_setAPN("internet"); //play polska
   /* Library init end */
 
   HAL_TIM_Base_Start_IT(&htim3);
@@ -213,7 +224,8 @@ int main(void)
 		  ssd1306_SetCursor(0, 0);
 		  ssd1306_WriteString("SMS Transmit", Font_11x18, White);
 		  ssd1306_UpdateScreen();
-		  sim900_sendSMS(TESTINGNUMBER, text);
+		  //sim900_sendSMS(TESTINGNUMBER, text);
+		  sim900_getGPRS(SECRET, &gprsHandler);
 		  HAL_Delay(1000);
 
 	  }
@@ -237,7 +249,8 @@ int main(void)
 	  snprintf(text,20,"A:%d B:%d   ",channelA, channelB);
 	  ssd1306_SetCursor(0, 16);
 	  ssd1306_WriteString(text, Font_7x10, White);
-	  ssd1306_UpdateScreen();
+	  if(screenfreeze == 0)ssd1306_UpdateScreen();
+	  else screenfreeze--;
 
 
   }

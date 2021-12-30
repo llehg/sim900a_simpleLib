@@ -2,7 +2,10 @@
  * sim900a.c
  *
  *  Created on: 17 gru 2021
- *      Author: sq9ril
+ * Grzegorz Ulfik 2021
+ * grupa 2, sekcja 3
+ *
+ * Projekt obejmuje stworzenie biblioteki do obsługi modemu SIM900.
  */
 
 #include "main.h"
@@ -53,6 +56,12 @@ uint8_t sim900_poll(void) {
 	}
 
 	//Polling modem
+	if(SIM.timeout < 20 && SIM.timeout > 1)return SIMREPLY_WAITING; //return if reply not received yet
+	if(SIM.gprsTimeout){
+		SIM.gprsTimeout --;
+		return SIMREPLY_WAITING;
+	}
+
 
 	char txbuffer[200];
 	uint8_t txlen;
@@ -90,12 +99,59 @@ uint8_t sim900_poll(void) {
 		txlen = sprintf(txbuffer, "AT+CMGDA=\"DEL READ\"\r\n");
 		break;
 
+#ifdef INCLUDE_GPRS
+
+	case AT_CLOSE_GPRS:
+			txlen = sprintf(txbuffer, "AT+CIPSHUT\r\n");
+
+			break;
+
+	case AT_START_IP:
+			txlen = sprintf(txbuffer, "AT+CIPMUX=0\r\n");
+
+			break;
+
+	case AT_SET_APN:
+			txlen = sprintf(txbuffer, "AT+CSTT=\"%s\"\r\n",SIM.APN);
+			break;
+
+	case AT_BRING_CONN:
+			txlen = sprintf(txbuffer, "AT+CIICR\r\n");
+			SIM.gprsTimeout = 50;
+			break;
+
+	case AT_GET_IP:
+			txlen = sprintf(txbuffer, "AT+CIFSR\r\n");
+			break;
+
+	case AT_SELECT_IPMODE:
+			txlen = sprintf(txbuffer, "AT+CIPSPRT=0\r\n");
+			break;
+
+	case AT_START_CONN:
+			txlen = sprintf(txbuffer, "AT+CIPSTART=\"TCP\",\"%s\",\"80\"\r\n",SIM.requestHost);
+			SIM.gprsTimeout = 50;
+			break;
+
+	case AT_BEGIN_REQ:
+			txlen = sprintf(txbuffer, "AT+CIPSEND\r\n");
+			SIM.gprsTimeout = 50;
+			break;
+
+	case AT_SEND_REQ:
+			txlen = sprintf(txbuffer, "GET %s\r\n",SIM.requestUrl);
+					SIM.gprsTimeout = 50;
+					break;
+
+#endif
+
 	default:
 		txlen = sprintf(txbuffer, "AT\r\n");
 		break;
 	}
 
 	HAL_UART_Transmit(&SIM900_UART, (uint8_t*) txbuffer, txlen, 100);
+	if(SIM.next_pollReq == AT_SEND_REQ)HAL_UART_Transmit(&SIM900_UART, (uint8_t*) &CTRL_Z, 1, 200);
 
 	if(SIM.timeout > DECLARED_TIMEOUT)return SIMREPLY_ERROR;
 	return SIMREPLY_OK;
@@ -241,9 +297,82 @@ void sim900_parseReply(uint8_t* data, uint16_t len){
 		SIM.messageSendStatus = 0;
 		break;
 
+#ifdef INCLUDE_GPRS
+	case AT_CLOSE_GPRS:
+		if(SIM.gprsProcessing == 0)SIM.next_pollReq = AT_SIGNAL_STRENGTH;
+		else if (strncmp(strings[1], "SHUT OK", 7) == 0) {
+					SIM.next_pollReq = AT_START_IP;
+				}
+		break;
+
+	case AT_START_IP:
+		if (strncmp(strings[1], "OK", 2) == 0) {
+					SIM.next_pollReq = AT_SET_APN;
+				}
+		break;
+
+	case AT_SET_APN:
+		if (strncmp(strings[1], "OK", 2) == 0) {
+					SIM.next_pollReq = AT_BRING_CONN;
+				}
+		break;
+
+	case AT_BRING_CONN: //typical very long reply
+		if (strncmp(strings[0], "OK", 2) == 0) {
+					SIM.next_pollReq = AT_GET_IP;
+					SIM.gprsTimeout = 0;
+			}
+		break;
+
+	case AT_GET_IP: //ToDo: verify if received ip, not trash
+			SIM.next_pollReq = AT_SELECT_IPMODE;
+		break;
+
+	case AT_SELECT_IPMODE:
+		if (strncmp(strings[1], "OK", 2) == 0) {
+					SIM.next_pollReq = AT_START_CONN;
+				}
+		break;
+
+	case AT_START_CONN: //typical long reply
+		if (strncmp(strings[0], "CONNECT OK", 10) == 0) {
+					SIM.next_pollReq = AT_BEGIN_REQ;
+					SIM.gprsTimeout = 0;
+				}
+		break;
+
+	case AT_BEGIN_REQ:
+
+		SIM.next_pollReq = AT_SEND_REQ;
+		SIM.gprsTimeout = 0;
+
+		break;
+
+	case AT_SEND_REQ:
+
+
+		if (strncmp(strings[0], "SEND OK", 7) == 0) {
+					SIM.gprsProcessing = 100;
+				}
+		else if(SIM.gprsProcessing == 100){
+			SIM.SIM_GPRS_Callback(strings[0]);
+			SIM.gprsProcessing = 1;
+		}
+
+		if (strncmp(strings[0], "CLOSED", 6) == 0) {
+			SIM.gprsProcessing = 0;
+			SIM.gprsTimeout = 0;
+			SIM.next_pollReq = AT_CLOSE_GPRS;
+		}
+
+		break;
+
+#endif
+
 	default:
 		if(SIM.messageSendStatus)SIM.next_pollReq = AT_MESSAGEFORMAT; //if message waiting to send, send
-					else SIM.next_pollReq = AT_SIGNAL_STRENGTH; //back to loop
+		else if(SIM.gprsProcessing)SIM.next_pollReq = AT_CLOSE_GPRS;
+		else SIM.next_pollReq = AT_SIGNAL_STRENGTH; //back to loop
 		break;
 	}
 }
@@ -271,3 +400,19 @@ Sim900Struct sim900_getAllParameters(Sim900Struct** pointer){ //pointer to point
 	if(pointer)*pointer = &SIM; //return pointer if pointer specified
 	return SIM;
 }
+
+#ifdef INCLUDE_GPRS
+void sim900_setAPN(char* apn){
+	strncpy(SIM.APN, apn , GPRS_APN_LEN);
+}
+
+
+void sim900_getGPRS(char* host, char* url, void (*Callback)(char *reply)){
+	if(SIM.gprsProcessing)return; //if another process, abort request
+	SIM.gprsProcessing = 2;
+	SIM.SIM_GPRS_Callback = Callback;
+	strncpy(SIM.requestHost, host, GPRS_HOST_LEN);
+	strncpy(SIM.requestUrl , url, GPRS_REQ_LEN);
+
+}
+#endif
