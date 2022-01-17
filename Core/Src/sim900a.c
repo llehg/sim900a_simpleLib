@@ -2,7 +2,7 @@
  * sim900a.c
  *
  *  Created on: 17 gru 2021
- * Grzegorz Ulfik 2021
+ * Grzegorz --- 2021
  * grupa 2, sekcja 3
  *
  * Projekt obejmuje stworzenie biblioteki do obsługi modemu SIM900.
