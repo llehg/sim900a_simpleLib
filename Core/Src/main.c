@@ -1,6 +1,6 @@
 /* USER CODE BEGIN Header */
 /*
- * Grzegorz Ulfik 2021
+ * Grzegorz --- 2021
  * grupa 2, sekcja 3
  *
  * Projekt obejmuje stworzenie biblioteki do obsługi modemu SIM900.
